@@ -13,7 +13,7 @@ with sync_playwright() as p:
     errors=[]
     page.on('pageerror',lambda error: errors.append(str(error)))
     page.goto(url)
-    page.get_by_label('Senha do escritório').fill(os.environ['TEST_PASSWORD'])
+    page.get_by_label('Senha',exact=True).fill(os.environ['TEST_PASSWORD'])
     page.get_by_role('button',name='Entrar no ContaSaas').click()
     page.get_by_role('heading',name='Tudo sob controle.').wait_for()
     page.screenshot(path='/tmp/contasaas-desktop.png',full_page=True)
@@ -50,7 +50,7 @@ with sync_playwright() as p:
         page.get_by_role('button',name='↑ Importar CSV').click()
         page.get_by_label('Cliente',exact=True).select_option(label='Cliente do teste de navegador')
         page.get_by_label('Origem dos dados').select_option(origin)
-        page.get_by_label('Arquivo CSV').set_input_files({'name':'import.csv','mimeType':'text/csv','buffer':'data;descricao;valor\n2026-11-10;Lançamento navegador;1500,00'.encode()})
+        page.get_by_label('Arquivo CSV ou OFX').set_input_files({'name':'import.csv','mimeType':'text/csv','buffer':'data;descricao;valor\n2026-11-10;Lançamento navegador;1500,00'.encode()})
         page.get_by_role('button',name='Importar arquivo',exact=True).click()
         page.locator('dialog').wait_for(state='hidden')
         page.wait_for_timeout(200)

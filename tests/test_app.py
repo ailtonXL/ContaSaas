@@ -133,7 +133,7 @@ class ApplicationTest(unittest.TestCase):
             self.assertEqual(con.execute('SELECT status FROM reminders').fetchone()[0],'Cancelado')
             con.execute("UPDATE obligations SET status='Pendente'")
         smtp=MagicMock()
-        with patch.dict('os.environ',{'SMTP_HOST':'smtp.example.com','SMTP_USER':'user','SMTP_PASSWORD':'fake','SMTP_FROM':'office@example.com'}), patch('app.smtplib.SMTP',return_value=smtp):
+        with patch.dict('os.environ',{'SMTP_HOST':'smtp.example.com','SMTP_USER':'user','SMTP_PASSWORD':'fake','SMTP_FROM':'office@example.com'}), patch('core.smtplib.SMTP',return_value=smtp):
             app.send_reminders()
             smtp.__enter__.return_value.starttls.assert_called_once()
             smtp.__enter__.return_value.send_message.assert_called_once()
