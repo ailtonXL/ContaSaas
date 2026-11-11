@@ -1,0 +1,76 @@
+"""Teste opcional sobre instância descartável já iniciada com app.py demo."""
+import os
+import sys
+import shutil
+from pathlib import Path
+from playwright.sync_api import sync_playwright
+
+url = sys.argv[1] if len(sys.argv)>1 else 'http://127.0.0.1:8000'
+with sync_playwright() as p:
+    browser=p.chromium.launch(headless=True,executable_path=shutil.which('chromium'),args=['--no-sandbox'])
+    page=browser.new_page(viewport={'width':1440,'height':1080})
+    page.set_default_timeout(10000)
+    errors=[]
+    page.on('pageerror',lambda error: errors.append(str(error)))
+    page.goto(url)
+    page.get_by_label('Senha do escritório').fill(os.environ['TEST_PASSWORD'])
+    page.get_by_role('button',name='Entrar no ContaSaas').click()
+    page.get_by_role('heading',name='Tudo sob controle.').wait_for()
+    page.screenshot(path='/tmp/contasaas-desktop.png',full_page=True)
+    page.locator('nav [data-page="clients"]').click()
+    page.get_by_role('button',name='+ Novo cliente').click()
+    page.get_by_label('Nome da empresa').fill('Cliente do teste de navegador')
+    page.get_by_label('E-mail para lembretes').fill('navegador@example.com')
+    page.get_by_role('button',name='Salvar',exact=True).click()
+    page.get_by_text('navegador@example.com',exact=True).wait_for()
+    page.locator('nav [data-page="documents"]').click()
+    page.get_by_role('button',name='+ Solicitar documento').click()
+    page.get_by_label('Cliente',exact=True).select_option(label='Cliente do teste de navegador')
+    page.get_by_label('Qual documento você precisa?').fill('Documento do teste')
+    page.get_by_label('Prazo de entrega').fill('2026-11-20')
+    page.get_by_role('button',name='Salvar',exact=True).click()
+    row=page.get_by_role('row').filter(has_text='Documento do teste')
+    row.wait_for()
+    with page.expect_file_chooser() as fc:
+        row.get_by_role('button',name='Anexar',exact=True).click()
+    fc.value.set_files({'name':'teste.pdf','mimeType':'application/pdf','buffer':b'%PDF-teste navegador'})
+    page.get_by_role('link',name='Baixar teste.pdf').wait_for()
+    page.get_by_role('row').filter(has_text='Documento do teste').get_by_label('Status de Documento do teste').select_option('Concluído')
+    page.get_by_role('row').filter(has_text='Documento do teste').get_by_text('✓ Concluído',exact=True).wait_for()
+    page.locator('nav [data-page="obligations"]').click()
+    page.get_by_role('button',name='+ Nova obrigação').click()
+    page.get_by_label('Cliente',exact=True).select_option(label='Cliente do teste de navegador')
+    page.get_by_label('Nome da obrigação').fill('Obrigação do teste')
+    page.get_by_label('Vencimento',exact=True).fill('2026-11-20')
+    page.get_by_label('Responsável',exact=True).fill('Equipe teste')
+    page.get_by_role('button',name='Salvar',exact=True).click()
+    page.get_by_role('row').filter(has_text='Obrigação do teste').wait_for()
+    page.locator('nav [data-page="reconciliation"]').click()
+    for origin in ['bank','book']:
+        page.get_by_role('button',name='↑ Importar CSV').click()
+        page.get_by_label('Cliente',exact=True).select_option(label='Cliente do teste de navegador')
+        page.get_by_label('Origem dos dados').select_option(origin)
+        page.get_by_label('Arquivo CSV').set_input_files({'name':'import.csv','mimeType':'text/csv','buffer':'data;descricao;valor\n2026-11-10;Lançamento navegador;1500,00'.encode()})
+        page.get_by_role('button',name='Importar arquivo',exact=True).click()
+        page.locator('dialog').wait_for(state='hidden')
+        page.wait_for_timeout(200)
+    page.locator('#filter-client').select_option(label='Cliente do teste de navegador')
+    row=page.locator('.match-row').filter(has_text='Lançamento navegador')
+    row.locator('select').select_option(index=1)
+    row.get_by_role('button',name='Confirmar',exact=True).click()
+    page.get_by_role('button',name='Desfazer',exact=True).wait_for()
+    page.get_by_role('button',name='Desfazer',exact=True).click()
+    page.locator('.match-row').filter(has_text='Lançamento navegador').wait_for()
+    page.locator('nav [data-page="reminders"]').click()
+    page.get_by_role('button',name='+ Preparar lembretes').click()
+    page.get_by_role('heading',name='Aurora Design',exact=True).wait_for()
+    page.reload()
+    page.get_by_role('heading',name='Tudo sob controle.').wait_for()
+    page.set_viewport_size({'width':390,'height':844})
+    page.screenshot(path='/tmp/contasaas-mobile.png',full_page=True)
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Página excede largura do celular'
+    page.get_by_role('button',name='Sair do escritório').click()
+    page.get_by_role('heading',name='Bem-vindo ao seu escritório').wait_for()
+    assert not errors, errors
+    browser.close()
+    print('OK: login, clientes, documento/anexo, obrigação, CSV, conciliação/desfazer, lembretes, persistência, celular e logout.')
